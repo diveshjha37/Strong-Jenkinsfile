@@ -1,0 +1,17 @@
+pipeline {
+    agent any
+    stages {
+        stage('build') {
+            steps {
+                sh 'python --version'
+            }
+        }
+    stage('Checkout SCM') {
+        steps {
+            git branch: 'main',
+                url: 'https://github.com/diveshjha37/nginxtest.git'
+            sh "ls -lat"
+        }
+      }
+    }
+}
