@@ -1,17 +1,84 @@
 pipeline {
     agent any
+
+    environment {
+        REPO_URL = 'https://github.com/your-repo/your-app.git'  // Your Git repository URL
+        IMAGE_NAME = 'your-docker-repo/nginx-image'             // Docker image name
+        REGISTRY_CREDENTIALS = 'dockerhub-credentials'          // Docker registry credentials ID
+        DOCKER_REGISTRY = 'your-docker-repo'                    // Docker registry
+    }
+
     stages {
-        stage('build') {
+        stage('Checkout') {
             steps {
-                sh 'python --version'
+                // Checkout code from the repository
+                git branch: 'main', url: "${REPO_URL}"
             }
         }
-    stage('Checkout SCM') {
-        steps {
-            git branch: 'main',
-                url: 'https://github.com/diveshjha37/nginxtest.git'
-            sh "ls -lat"
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    // Build Docker image for NGINX
+                    docker.build("${IMAGE_NAME}")
+                }
+            }
         }
-      }
+
+        stage('Run Container Locally') {
+            steps {
+                script {
+                    // Run the Docker container locally for testing
+                    docker.image("${IMAGE_NAME}").run("-d -p 8080:80")
+                }
+            }
+        }
+
+        stage('Test NGINX Setup') {
+            steps {
+                script {
+                    // Test NGINX by checking if it's running
+                    sh 'curl http://localhost:8080'
+                }
+            }
+        }
+
+        stage('Push Docker Image to Registry') {
+            steps {
+                script {
+                    // Push Docker image to the registry
+                    docker.withRegistry("https://${DOCKER_REGISTRY}", "${REGISTRY_CREDENTIALS}") {
+                        docker.image("${IMAGE_NAME}").push()
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Production') {
+            steps {
+                script {
+                    // Run deployment commands here (e.g., using SSH to deploy to a server)
+                    // Example command
+                    sh '''
+                    ssh ubuntu@your-server "docker pull ${IMAGE_NAME} && docker stop nginx-container || true && docker rm nginx-container || true && docker run -d --name nginx-container -p 80:80 ${IMAGE_NAME}"
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            // Cleanup steps after the build (optional)
+            sh 'docker system prune -f'
+        }
+        success {
+            // Notify success
+            echo 'Deployment completed successfully!'
+        }
+        failure {
+            // Notify failure
+            echo 'Deployment failed!'
+        }
     }
 }
