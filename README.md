@@ -60,3 +60,8 @@ Ensure that the required ports for Docker and SonarQube are accessible.
 
 ## Conclusion
 This guide walks you through setting up a Jenkins pipeline with Docker and SonarQube for your project. Feel free to customize the stages and configurations as per your project requirements.
+
+## Expected result...
+![image](https://github.com/user-attachments/assets/17a9a011-2f14-4967-90da-2dbc54e25932)
+
+![image](https://github.com/user-attachments/assets/599759b5-e977-4924-ab3a-e9ec780b76ac)
