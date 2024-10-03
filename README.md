@@ -1,4 +1,4 @@
-# Jenkins Pipeline Configuration for Docker and SonarQube
+# Jenkins Pipeline Configuration for Docker and SonarQube and deploy the secure nginx image
 
 This README provides step-by-step instructions for configuring a Jenkins pipeline to build a Docker image, perform static analysis, run SonarQube scans, and deploy your application. 
 
@@ -16,7 +16,7 @@ Before you start, ensure you have the following set up:
 
 2. **SonarQube**:
    - A running SonarQube instance.
-   - A project created in SonarQube with a unique project key.
+   - A project created in SonarQube with a unique project key and key name must be replaced in Jenkinfile..
 
 3. **GitHub Repository**:
    - A GitHub repository containing your Dockerfile and source code.
