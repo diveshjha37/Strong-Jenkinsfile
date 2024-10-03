@@ -2,19 +2,16 @@ pipeline {
     agent any
 
     environment {
-        REPO_URL = 'https://github.com/diveshjha37/web-server-cd.git'     // Your Git repository URL
-        IMAGE_NAME = 'ghcr.io/diveshjha37/securenginx'    // Docker image name for GitHub Container Registry
-        GITHUB_CREDENTIALS = 'ghcr-credentials'                    // Credentials ID from Jenkins global vars
-        GITHUB_REGISTRY = 'ghcr.io'                                // GitHub Container Registry
-        SONARQUBE_IMAGE = 'sonarqube:latest'                       // SonarQube Docker image
-        SONARQUBE_TOKEN = credentials('sonarqube-token')           // SonarQube token stored in Jenkins credentials
-        SONARQUBE_PROJECT_KEY = 'securewebApp'                   // SonarQube project key which needs to be created from sonarqube management console...
+        REPO_URL = 'https://github.com/diveshjha37/web-server-cd.git'
+        IMAGE_NAME = 'ghcr.io/diveshjha37/securenginx'
+        GITHUB_CREDENTIALS = 'ghcr-credentials'
+        GITHUB_REGISTRY = 'ghcr.io'
+        SONARQUBE_PROJECT_KEY = 'your-sonarqube-project-key'
     }
 
     stages {
         stage('Checkout') {
             steps {
-                // Checkout code from the repository
                 git branch: 'main', url: "${REPO_URL}"
             }
         }
@@ -22,7 +19,6 @@ pipeline {
         stage('Install Packages') {
             steps {
                 script {
-                    // Function to install necessary linting tools
                     installLintingTools()
                 }
             }
@@ -31,59 +27,17 @@ pipeline {
         stage('Static Analysis') {
             steps {
                 script {
-                    // Run Hadolint to lint the Dockerfile
                     sh 'hadolint Dockerfile'
-
-                    // Run HTMLHint to lint the HTML file
                     sh 'npx htmlhint index.html'
                 }
             }
         }
 
-        stage('SonarQube Scan') {
+        stage('Dependency Scanning') {
             steps {
                 script {
-                    // Run SonarQube in a container
-                    docker.image("${SONARQUBE_IMAGE}").inside("-p 9000:9000") {
-                        // Start SonarQube in the background
-                        sh 'docker run -d --name sonarqube -p 9000:9000 -e SONAR_JDBC_URL=jdbc:h2:mem:sonar -e SONAR_JDBC_DRIVER_CLASS=org.h2.Driver ${SONARQUBE_IMAGE}'
-
-                        // Wait for SonarQube to start up
-                        sleep(60) // Adjust this time if needed
-
-                        // Run SonarQube scanner
-                        sh """
-                            sonar-scanner \
-                            -Dsonar.projectKey=${SONARQUBE_PROJECT_KEY} \
-                            -Dsonar.sources=. \
-                            -Dsonar.host.url=http://your-sonarqube-server-url \
-                            -Dsonar.login=${SONARQUBE_TOKEN}
-                        """
-
-                        
-                        // Stop and remove the SonarQube container
-                        sh 'docker stop sonarqube && docker rm sonarqube'
-                    }
-
-                    // Check SonarQube quality gate status
-                    def qualityGate = sh(script: '''
-                    curl -s -u ${SONARQUBE_TOKEN}: "http://localhost:9000/api/qualitygates/project_status?projectKey=${SONARQUBE_PROJECT_KEY}" | jq .projectStatus.status
-                    ''', returnStdout: true).trim()
-
-                    // Check for bugs
-                    def bugsCount = sh(script: '''
-                    curl -s -u ${SONARQUBE_TOKEN}: "http://localhost:9000/api/issues/search?componentKeys=${SONARQUBE_PROJECT_KEY}&types=BUG" | jq '.total'
-                    ''', returnStdout: true).trim()
-
-                    echo "Quality Gate Status: ${qualityGate}"
-                    echo "Bugs Found: ${bugsCount}"
-
-                    if (qualityGate != "OK") {
-                        error("SonarQube Quality Gate failed. Status: ${qualityGate}.")
-                    }
-                    if (bugsCount.toInteger() > 1) {
-                        error("Found ${bugsCount} bugs. Aborting pipeline.")
-                    }
+                    // Example using Snyk for dependency scanning
+                    sh 'snyk test'
                 }
             }
         }
@@ -91,8 +45,16 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    // Build Docker image for NGINX
                     docker.build("${IMAGE_NAME}")
+                }
+            }
+        }
+
+        stage('Docker Image Scanning') {
+            steps {
+                script {
+                    // Example using Trivy for Docker image scanning
+                    sh "trivy image --exit-code 1 ${IMAGE_NAME}"
                 }
             }
         }
@@ -100,7 +62,6 @@ pipeline {
         stage('Run Container Locally') {
             steps {
                 script {
-                    // Run the Docker container locally for testing
                     docker.image("${IMAGE_NAME}").run("-d -p 8080:80")
                 }
             }
@@ -109,8 +70,43 @@ pipeline {
         stage('Test NGINX Setup') {
             steps {
                 script {
-                    // Test NGINX by checking if it's running
                     sh 'curl http://localhost:8080'
+                }
+            }
+        }
+
+        stage('Run Unit Tests') {
+            steps {
+                script {
+                    // Run unit tests (adjust according to your test framework)
+                    sh 'npm test'
+                }
+            }
+        }
+
+        stage('Run Integration Tests') {
+            steps {
+                script {
+                    // Run integration tests (adjust according to your setup)
+                    sh 'npm run integration-tests'
+                }
+            }
+        }
+
+        stage('Security Testing') {
+            steps {
+                script {
+                    // Perform security tests here (adjust according to your setup)
+                    sh 'some-security-testing-command'
+                }
+            }
+        }
+
+        stage('Performance Testing') {
+            steps {
+                script {
+                    // Run performance tests (adjust according to your setup)
+                    sh 'some-performance-testing-command'
                 }
             }
         }
@@ -118,7 +114,6 @@ pipeline {
         stage('Push Docker Image to GitHub Container Registry') {
             steps {
                 script {
-                    // Push Docker image to GitHub Container Registry
                     docker.withRegistry("https://${GITHUB_REGISTRY}", "${GITHUB_CREDENTIALS}") {
                         docker.image("${IMAGE_NAME}").push()
                     }
@@ -129,7 +124,6 @@ pipeline {
         stage('Deploy to Production') {
             steps {
                 script {
-                    // Run deployment commands here (e.g., using SSH to deploy to a server)
                     sh '''
                     ssh ubuntu@your-server "docker pull ${IMAGE_NAME} && docker stop nginx-container || true && docker rm nginx-container || true && docker run -d --name nginx-container -p 80:80 ${IMAGE_NAME}"
                     '''
@@ -140,23 +134,19 @@ pipeline {
 
     post {
         always {
-            // Cleanup steps after the build (optional)
             sh 'docker system prune -f'
         }
         success {
-            // Notify success
             echo 'Deployment completed successfully!'
         }
         failure {
-            // Notify failure
             echo 'Deployment failed!'
         }
     }
 }
 
-// Function to install packages if they fail it will abort the pipeline
+// Function to install packages if it fails it will abort the pipeline.
 def installLintingTools() {
-    // Install Hadolint
     def hadolintStatus = sh(script: '''
         if ! command -v hadolint &> /dev/null; then
             echo "Hadolint not found. Installing..."
@@ -166,12 +156,10 @@ def installLintingTools() {
         fi
     ''', returnStatus: true)
 
-    // Check if Hadolint installation was successful
     if (hadolintStatus != 0) {
         error("Hadolint installation failed. Exiting pipeline.")
     }
 
-    // Install HTMLHint
     def htmlhintStatus = sh(script: '''
         if ! command -v htmlhint &> /dev/null; then
             echo "HTMLHint not found. Installing..."
@@ -181,7 +169,6 @@ def installLintingTools() {
         fi
     ''', returnStatus: true)
 
-    // Check if HTMLHint installation was successful
     if (htmlhintStatus != 0) {
         error("HTMLHint installation failed. Exiting pipeline.")
     }
