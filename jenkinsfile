@@ -3,9 +3,12 @@ pipeline {
 
     environment {
         REPO_URL = 'https://github.com/diveshjha37/web-server-cd.git'     // Your Git repository URL
-        IMAGE_NAME = 'ghcr.io/diveshjha37/customNginx'    // Docker image name for GitHub Container Registry
-        GITHUB_CREDENTIALS = 'ghcr-credentials'                    // Credentials ID from Jenkins
+        IMAGE_NAME = 'ghcr.io/diveshjha37/securenginx'    // Docker image name for GitHub Container Registry
+        GITHUB_CREDENTIALS = 'ghcr-credentials'                    // Credentials ID from Jenkins global vars
         GITHUB_REGISTRY = 'ghcr.io'                                // GitHub Container Registry
+        SONARQUBE_IMAGE = 'sonarqube:latest'                       // SonarQube Docker image
+        SONARQUBE_TOKEN = credentials('sonarqube-token')           // SonarQube token stored in Jenkins credentials
+        SONARQUBE_PROJECT_KEY = 'securewebApp'                   // SonarQube project key which needs to be created from sonarqube management console...
     }
 
     stages {
@@ -13,6 +16,75 @@ pipeline {
             steps {
                 // Checkout code from the repository
                 git branch: 'main', url: "${REPO_URL}"
+            }
+        }
+
+        stage('Install Packages') {
+            steps {
+                script {
+                    // Function to install necessary linting tools
+                    installLintingTools()
+                }
+            }
+        }
+
+        stage('Static Analysis') {
+            steps {
+                script {
+                    // Run Hadolint to lint the Dockerfile
+                    sh 'hadolint Dockerfile'
+
+                    // Run HTMLHint to lint the HTML file
+                    sh 'npx htmlhint index.html'
+                }
+            }
+        }
+
+        stage('SonarQube Scan') {
+            steps {
+                script {
+                    // Run SonarQube in a container
+                    docker.image("${SONARQUBE_IMAGE}").inside("-p 9000:9000") {
+                        // Start SonarQube in the background
+                        sh 'docker run -d --name sonarqube -p 9000:9000 -e SONAR_JDBC_URL=jdbc:h2:mem:sonar -e SONAR_JDBC_DRIVER_CLASS=org.h2.Driver ${SONARQUBE_IMAGE}'
+
+                        // Wait for SonarQube to start up
+                        sleep(60) // Adjust this time if needed
+
+                        // Run SonarQube scanner
+                        sh """
+                            sonar-scanner \
+                            -Dsonar.projectKey=${SONARQUBE_PROJECT_KEY} \
+                            -Dsonar.sources=. \
+                            -Dsonar.host.url=http://your-sonarqube-server-url \
+                            -Dsonar.login=${SONARQUBE_TOKEN}
+                        """
+
+                        
+                        // Stop and remove the SonarQube container
+                        sh 'docker stop sonarqube && docker rm sonarqube'
+                    }
+
+                    // Check SonarQube quality gate status
+                    def qualityGate = sh(script: '''
+                    curl -s -u ${SONARQUBE_TOKEN}: "http://localhost:9000/api/qualitygates/project_status?projectKey=${SONARQUBE_PROJECT_KEY}" | jq .projectStatus.status
+                    ''', returnStdout: true).trim()
+
+                    // Check for bugs
+                    def bugsCount = sh(script: '''
+                    curl -s -u ${SONARQUBE_TOKEN}: "http://localhost:9000/api/issues/search?componentKeys=${SONARQUBE_PROJECT_KEY}&types=BUG" | jq '.total'
+                    ''', returnStdout: true).trim()
+
+                    echo "Quality Gate Status: ${qualityGate}"
+                    echo "Bugs Found: ${bugsCount}"
+
+                    if (qualityGate != "OK") {
+                        error("SonarQube Quality Gate failed. Status: ${qualityGate}.")
+                    }
+                    if (bugsCount.toInteger() > 1) {
+                        error("Found ${bugsCount} bugs. Aborting pipeline.")
+                    }
+                }
             }
         }
 
@@ -58,7 +130,6 @@ pipeline {
             steps {
                 script {
                     // Run deployment commands here (e.g., using SSH to deploy to a server)
-                    // Example command
                     sh '''
                     ssh ubuntu@your-server "docker pull ${IMAGE_NAME} && docker stop nginx-container || true && docker rm nginx-container || true && docker run -d --name nginx-container -p 80:80 ${IMAGE_NAME}"
                     '''
@@ -83,3 +154,35 @@ pipeline {
     }
 }
 
+// Function to install packages if they fail it will abort the pipeline
+def installLintingTools() {
+    // Install Hadolint
+    def hadolintStatus = sh(script: '''
+        if ! command -v hadolint &> /dev/null; then
+            echo "Hadolint not found. Installing..."
+            curl -sSfL https://raw.githubusercontent.com/hadolint/hadolint/master/install.sh | sh -s -- -b /usr/local/bin
+        else
+            echo "Hadolint is already installed."
+        fi
+    ''', returnStatus: true)
+
+    // Check if Hadolint installation was successful
+    if (hadolintStatus != 0) {
+        error("Hadolint installation failed. Exiting pipeline.")
+    }
+
+    // Install HTMLHint
+    def htmlhintStatus = sh(script: '''
+        if ! command -v htmlhint &> /dev/null; then
+            echo "HTMLHint not found. Installing..."
+            npm install -g htmlhint
+        else
+            echo "HTMLHint is already installed."
+        fi
+    ''', returnStatus: true)
+
+    // Check if HTMLHint installation was successful
+    if (htmlhintStatus != 0) {
+        error("HTMLHint installation failed. Exiting pipeline.")
+    }
+}

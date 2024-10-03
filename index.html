@@ -1,1 +1,71 @@
-hello divesh
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deployment Status</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+            background-color: #ffffff;
+            transition: background-color 0.5s ease;
+        }
+        h1 {
+            color: #333;
+        }
+        button {
+            font-size: 20px;
+            padding: 15px 30px;
+            margin: 10px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        #success {
+            background-color: #28a745;
+            color: white;
+        }
+        #success:hover {
+            background-color: #218838;
+        }
+        #failure {
+            background-color: #dc3545;
+            color: white;
+        }
+        #failure:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Was the deployment successful?</h1>
+    <div>
+        <button id="success" onclick="checkServer()">Check Deployment</button>
+    </div>
+
+    <script>
+        function checkServer() {
+            fetch('http://localhost:8081')
+                .then(response => {
+                    if (response.ok) {
+                        document.body.style.backgroundColor = 'green';
+                        alert('Server is reachable! Deployment is successful.');
+                    } else {
+                        document.body.style.backgroundColor = 'red';
+                        alert('Server is unreachable! Deployment failed.');
+                    }
+                })
+                .catch(error => {
+                    document.body.style.backgroundColor = 'red';
+                    alert('Server is unreachable! Deployment failed.');
+                });
+        }
+    </script>
+
+</body>
+</html>
+
