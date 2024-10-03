@@ -175,3 +175,26 @@ def installLintingTools() {
         error("HTMLHint installation failed. Exiting pipeline.")
     }
 }
+
+
+Step 3: Run the Pipeline
+Create a New Job:
+
+In Jenkins, create a new pipeline job and point it to your GitHub repository.
+Run the Pipeline:
+
+Trigger the pipeline and monitor the output to ensure all stages are completed successfully.
+Step 4: Monitor SonarQube Results
+Check SonarQube Dashboard:
+After the pipeline runs, check the SonarQube dashboard for your project to view the analysis results.
+Troubleshooting
+If you encounter issues, check the Jenkins console output for detailed error messages.
+Ensure that the required ports for Docker and SonarQube are accessible.
+Conclusion
+This guide walks you through setting up a Jenkins pipeline with Docker and SonarQube for your project. Feel free to customize the stages and configurations as per your project requirements.
+
+### Customization
+- Replace placeholder values (like GitHub repository URL, credentials, server details) with your actual project details.
+- Add any additional instructions specific to your environment or requirements.
+
+This README should provide users with a clear understanding of how to configure and run the pipeline. Let me know if you need further modifications!
