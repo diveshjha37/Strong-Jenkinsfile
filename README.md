@@ -40,156 +40,23 @@ Before you start, ensure you have the following set up:
 
 ## Step 2: Create the Jenkinsfile
 
-Create a `Jenkinsfile` in the root of your GitHub repository with the following content:
+Create a `Jenkinsfile` in the root of your GitHub repository:
 
-```groovy
-pipeline {
-    agent any
-
-    environment {
-        REPO_URL = 'https://github.com/yourusername/yourrepo.git' // Your Git repository URL
-        IMAGE_NAME = 'ghcr.io/yourusername/securenginx' // Docker image name for GitHub Container Registry
-        GITHUB_CREDENTIALS = 'your-credentials-id' // Credentials ID from Jenkins global vars
-        GITHUB_REGISTRY = 'ghcr.io' // GitHub Container Registry
-        SONARQUBE_PROJECT_KEY = 'your-sonarqube-project-key' // SonarQube Project Key
-        SONARQUBE_TOKEN = credentials('your-sonarqube-token') // SonarQube Token stored in Jenkins
-    }
-
-    stages {
-        stage('Checkout') {
-            steps {
-                git branch: 'main', url: "${REPO_URL}"
-            }
-        }
-
-        stage('Install Packages') {
-            steps {
-                script {
-                    installLintingTools()
-                }
-            }
-        }
-
-        stage('Static Analysis') {
-            steps {
-                script {
-                    sh 'hadolint Dockerfile'
-                    sh 'npx htmlhint index.html'
-                }
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    docker.build("${IMAGE_NAME}")
-                }
-            }
-        }
-
-        stage('Run Container Locally') {
-            steps {
-                script {
-                    docker.image("${IMAGE_NAME}").run("-d -p 8080:80")
-                }
-            }
-        }
-
-        stage('Test NGINX Setup') {
-            steps {
-                script {
-                    sh 'curl http://localhost:8080'
-                }
-            }
-        }
-
-        stage('SonarQube Scan') {
-            steps {
-                script {
-                    sh """
-                        docker run --rm \
-                        -e SONAR_HOST_URL=http://your-sonarqube-server \
-                        -e SONAR_LOGIN=${SONARQUBE_TOKEN} \
-                        -v \$PWD:/usr/src \
-                        sonarsource/sonar-scanner-cli \
-                        -Dsonar.projectKey=${SONARQUBE_PROJECT_KEY} \
-                        -Dsonar.sources=.
-                    """
-                }
-            }
-        }
-
-        stage('Push Docker Image to GitHub Container Registry') {
-            steps {
-                script {
-                    docker.withRegistry("https://${GITHUB_REGISTRY}", "${GITHUB_CREDENTIALS}") {
-                        docker.image("${IMAGE_NAME}").push()
-                    }
-                }
-            }
-        }
-
-        stage('Deploy to Production') {
-            steps {
-                script {
-                    sh '''
-                    ssh ubuntu@your-server "docker pull ${IMAGE_NAME} && docker stop nginx-container || true && docker rm nginx-container || true && docker run -d --name nginx-container -p 80:80 ${IMAGE_NAME}"
-                    '''
-                }
-            }
-        }
-    }
-
-    post {
-        always {
-            sh 'docker system prune -f'
-        }
-        success {
-            echo 'Deployment completed successfully!'
-        }
-        failure {
-            echo 'Deployment failed!'
-        }
-    }
-}
-
-// Function to install linting tools
-def installLintingTools() {
-    def hadolintStatus = sh(script: '''
-        if ! command -v hadolint &> /dev/null; then
-            curl -sSfL https://raw.githubusercontent.com/hadolint/hadolint/master/install.sh | sh -s -- -b /usr/local/bin
-        fi
-    ''', returnStatus: true)
-    
-    if (hadolintStatus != 0) {
-        error("Hadolint installation failed. Exiting pipeline.")
-    }
-
-    def htmlhintStatus = sh(script: '''
-        if ! command -v htmlhint &> /dev/null; then
-            npm install -g htmlhint
-        fi
-    ''', returnStatus: true)
-
-    if (htmlhintStatus != 0) {
-        error("HTMLHint installation failed. Exiting pipeline.")
-    }
-}
-
-```groovy
-
-Step 3: Run the Pipeline
+## Step 3: Run the Pipeline
 Create a New Job:
 
 In Jenkins, create a new pipeline job and point it to your GitHub repository.
 Run the Pipeline:
 
 Trigger the pipeline and monitor the output to ensure all stages are completed successfully.
-Step 4: Monitor SonarQube Results
+
+## Step 4: Monitor SonarQube Results
 Check SonarQube Dashboard:
 After the pipeline runs, check the SonarQube dashboard for your project to view the analysis results.
-Troubleshooting
+
+## Troubleshooting
 If you encounter issues, check the Jenkins console output for detailed error messages.
 Ensure that the required ports for Docker and SonarQube are accessible.
-Conclusion
+
+## Conclusion
 This guide walks you through setting up a Jenkins pipeline with Docker and SonarQube for your project. Feel free to customize the stages and configurations as per your project requirements.
