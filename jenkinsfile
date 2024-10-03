@@ -3,8 +3,8 @@ pipeline {
 
     environment {
         REPO_URL = 'https://github.com/diveshjha37/web-server-cd.git'     // Your Git repository URL
-        IMAGE_NAME = 'ghcr.io/diveshjha37/customNginx'    // Docker image name for GitHub Container Registry
-        GITHUB_CREDENTIALS = 'ghcr-credentials'                    // Credentials ID from Jenkins
+        IMAGE_NAME = 'ghcr.io/diveshjha37/securenginx'    // Docker image name for GitHub Container Registry
+        GITHUB_CREDENTIALS = 'ghcr-credentials'                    // Credentials ID from Jenkins global vars
         GITHUB_REGISTRY = 'ghcr.io'                                // GitHub Container Registry
     }
 
@@ -25,20 +25,16 @@ pipeline {
             }
         }
 
-        stage('Lint Dockerfile') {
+        stage('Static Analysis') {
             steps {
                 script {
                     // Run Hadolint to lint the Dockerfile
                     sh 'hadolint Dockerfile'
-                }
-            }
-        }
 
-        stage('Lint index.html') {
-            steps {
-                script {
                     // Run HTMLHint to lint the HTML file
                     sh 'npx htmlhint index.html'
+
+                    // Add any additional static analysis tools or scripts here
                 }
             }
         }
