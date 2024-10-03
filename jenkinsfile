@@ -16,6 +16,33 @@ pipeline {
             }
         }
 
+        stage('Install Packages') {
+            steps {
+                script {
+                    // Function to install necessary linting tools
+                    installLintingTools()
+                }
+            }
+        }
+
+        stage('Lint Dockerfile') {
+            steps {
+                script {
+                    // Run Hadolint to lint the Dockerfile
+                    sh 'hadolint Dockerfile'
+                }
+            }
+        }
+
+        stage('Lint index.html') {
+            steps {
+                script {
+                    // Run HTMLHint to lint the HTML file
+                    sh 'npx htmlhint index.html'
+                }
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 script {
@@ -84,3 +111,35 @@ pipeline {
     }
 }
 
+// Initating function to install pacakage if fails it will abort the pipeline..
+def installLintingTools() {
+    // Install Hadolint
+    def hadolintStatus = sh(script: '''
+        if ! command -v hadolint &> /dev/null; then
+            echo "Hadolint not found. Installing..."
+            curl -sSfL https://raw.githubusercontent.com/hadolint/hadolint/master/install.sh | sh -s -- -b /usr/local/bin
+        else
+            echo "Hadolint is already installed."
+        fi
+    ''', returnStatus: true)
+
+    // Check if Hadolint installation was successful
+    if (hadolintStatus != 0) {
+        error("Hadolint installation failed. Exiting pipeline.")
+    }
+
+    // Install HTMLHint
+    def htmlhintStatus = sh(script: '''
+        if ! command -v htmlhint &> /dev/null; then
+            echo "HTMLHint not found. Installing..."
+            npm install -g htmlhint
+        else
+            echo "HTMLHint is already installed."
+        fi
+    ''', returnStatus: true)
+
+    // Check if HTMLHint installation was successful
+    if (htmlhintStatus != 0) {
+        error("HTMLHint installation failed. Exiting pipeline.")
+    }
+}
