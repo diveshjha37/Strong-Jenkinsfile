@@ -36,13 +36,31 @@ pipeline {
         stage('Dependency Scanning') {
             steps {
                 script {
-                    // Example using Snyk for dependency scanning
                     sh 'snyk test'
                 }
             }
         }
 
+        stage('Check for Code Changes') {
+            steps {
+                script {
+                    // Check for changes in the repository
+                    def changes = sh(script: 'git diff --name-only HEAD^ HEAD', returnStdout: true).trim()
+                    if (changes) {
+                        echo "Changes detected: ${changes}"
+                        env.BUILD_IMAGE = 'true'
+                    } else {
+                        echo "No changes detected. Skipping Docker image build."
+                        env.BUILD_IMAGE = 'false'
+                    }
+                }
+            }
+        }
+
         stage('Build Docker Image') {
+            when {
+                expression { env.BUILD_IMAGE == 'true' }
+            }
             steps {
                 script {
                     docker.build("${IMAGE_NAME}")
@@ -51,15 +69,20 @@ pipeline {
         }
 
         stage('Docker Image Scanning') {
+            when {
+                expression { env.BUILD_IMAGE == 'true' }
+            }
             steps {
                 script {
-                    // Example using Trivy for Docker image scanning
                     sh "trivy image --exit-code 1 ${IMAGE_NAME}"
                 }
             }
         }
 
         stage('Run Container Locally') {
+            when {
+                expression { env.BUILD_IMAGE == 'true' }
+            }
             steps {
                 script {
                     docker.image("${IMAGE_NAME}").run("-d -p 8080:80")
@@ -78,7 +101,6 @@ pipeline {
         stage('Run Unit Tests') {
             steps {
                 script {
-                    // Run unit tests (adjust according to your test framework)
                     sh 'npm test'
                 }
             }
@@ -87,7 +109,6 @@ pipeline {
         stage('Run Integration Tests') {
             steps {
                 script {
-                    // Run integration tests (adjust according to your setup)
                     sh 'npm run integration-tests'
                 }
             }
@@ -96,7 +117,6 @@ pipeline {
         stage('Security Testing') {
             steps {
                 script {
-                    // Perform security tests here (adjust according to your setup)
                     sh 'some-security-testing-command'
                 }
             }
@@ -105,13 +125,15 @@ pipeline {
         stage('Performance Testing') {
             steps {
                 script {
-                    // Run performance tests (adjust according to your setup)
                     sh 'some-performance-testing-command'
                 }
             }
         }
 
         stage('Push Docker Image to GitHub Container Registry') {
+            when {
+                expression { env.BUILD_IMAGE == 'true' }
+            }
             steps {
                 script {
                     docker.withRegistry("https://${GITHUB_REGISTRY}", "${GITHUB_CREDENTIALS}") {
