@@ -6,6 +6,9 @@ pipeline {
         IMAGE_NAME = 'ghcr.io/diveshjha37/securenginx'    // Docker image name for GitHub Container Registry
         GITHUB_CREDENTIALS = 'ghcr-credentials'                    // Credentials ID from Jenkins global vars
         GITHUB_REGISTRY = 'ghcr.io'                                // GitHub Container Registry
+        SONARQUBE_IMAGE = 'sonarqube:latest'                       // SonarQube Docker image
+        SONARQUBE_TOKEN = credentials('sonarqube-token')           // SonarQube token stored in Jenkins credentials
+        SONARQUBE_PROJECT_KEY = 'securewebApp'                   // SonarQube project key which needs to be created from sonarqube management console...
     }
 
     stages {
@@ -33,8 +36,54 @@ pipeline {
 
                     // Run HTMLHint to lint the HTML file
                     sh 'npx htmlhint index.html'
+                }
+            }
+        }
 
-                    // Add any additional static analysis tools or scripts here
+        stage('SonarQube Scan') {
+            steps {
+                script {
+                    // Run SonarQube in a container
+                    docker.image("${SONARQUBE_IMAGE}").inside("-p 9000:9000") {
+                        // Start SonarQube in the background
+                        sh 'docker run -d --name sonarqube -p 9000:9000 -e SONAR_JDBC_URL=jdbc:h2:mem:sonar -e SONAR_JDBC_DRIVER_CLASS=org.h2.Driver ${SONARQUBE_IMAGE}'
+
+                        // Wait for SonarQube to start up
+                        sleep(60) // Adjust this time if needed
+
+                        // Run SonarQube scanner
+                        sh """
+                            sonar-scanner \
+                            -Dsonar.projectKey=${SONARQUBE_PROJECT_KEY} \
+                            -Dsonar.sources=. \
+                            -Dsonar.host.url=http://your-sonarqube-server-url \
+                            -Dsonar.login=${SONARQUBE_TOKEN}
+                        """
+
+                        
+                        // Stop and remove the SonarQube container
+                        sh 'docker stop sonarqube && docker rm sonarqube'
+                    }
+
+                    // Check SonarQube quality gate status
+                    def qualityGate = sh(script: '''
+                    curl -s -u ${SONARQUBE_TOKEN}: "http://localhost:9000/api/qualitygates/project_status?projectKey=${SONARQUBE_PROJECT_KEY}" | jq .projectStatus.status
+                    ''', returnStdout: true).trim()
+
+                    // Check for bugs
+                    def bugsCount = sh(script: '''
+                    curl -s -u ${SONARQUBE_TOKEN}: "http://localhost:9000/api/issues/search?componentKeys=${SONARQUBE_PROJECT_KEY}&types=BUG" | jq '.total'
+                    ''', returnStdout: true).trim()
+
+                    echo "Quality Gate Status: ${qualityGate}"
+                    echo "Bugs Found: ${bugsCount}"
+
+                    if (qualityGate != "OK") {
+                        error("SonarQube Quality Gate failed. Status: ${qualityGate}.")
+                    }
+                    if (bugsCount.toInteger() > 1) {
+                        error("Found ${bugsCount} bugs. Aborting pipeline.")
+                    }
                 }
             }
         }
@@ -52,7 +101,6 @@ pipeline {
             steps {
                 script {
                     // Run the Docker container locally for testing
-                    // Chnage port if port is already allocated on jenkins node...
                     docker.image("${IMAGE_NAME}").run("-d -p 8080:80")
                 }
             }
@@ -82,7 +130,6 @@ pipeline {
             steps {
                 script {
                     // Run deployment commands here (e.g., using SSH to deploy to a server)
-                    // Example command
                     sh '''
                     ssh ubuntu@your-server "docker pull ${IMAGE_NAME} && docker stop nginx-container || true && docker rm nginx-container || true && docker run -d --name nginx-container -p 80:80 ${IMAGE_NAME}"
                     '''
@@ -107,7 +154,7 @@ pipeline {
     }
 }
 
-// Initating function to install pacakage if fails it will abort the pipeline..
+// Function to install packages if they fail it will abort the pipeline
 def installLintingTools() {
     // Install Hadolint
     def hadolintStatus = sh(script: '''
