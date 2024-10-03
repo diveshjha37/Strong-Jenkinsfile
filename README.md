@@ -36,11 +36,12 @@ Before you start, ensure you have the following set up:
    - Ensure that the following tools are installed on your Jenkins node:
      - Hadolint (for Dockerfile linting)
      - HTMLHint (for HTML linting)
-   - You can add this as a step in your Jenkinsfile.
+   - You can add this as a step in your Jenkinsfile and if you want to add more language linter you can do that just update the function to install package and add the command to do the static analysis in stage.
+     
 
 ## Step 2: Create the Jenkinsfile
 
-Create a `Jenkinsfile` in the root of your GitHub repository:
+Create a `Jenkinsfile` in the root of your GitHub repository.
 
 ## Step 3: Run the Pipeline
 Create a New Job:
@@ -60,6 +61,7 @@ Ensure that the required ports for Docker and SonarQube are accessible.
 
 ## Conclusion
 This guide walks you through setting up a Jenkins pipeline with Docker and SonarQube for your project. Feel free to customize the stages and configurations as per your project requirements.
+More things can be done to prevent the application being 80% tested as a pipeline deployment process so the less risk, less errors and issues in production.
 
 ## Expected result...
 When you on check deployment it curls the local running instance and checks using curl..
