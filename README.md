@@ -176,6 +176,7 @@ def installLintingTools() {
     }
 }
 
+```groovy
 
 Step 3: Run the Pipeline
 Create a New Job:
@@ -192,9 +193,3 @@ If you encounter issues, check the Jenkins console output for detailed error mes
 Ensure that the required ports for Docker and SonarQube are accessible.
 Conclusion
 This guide walks you through setting up a Jenkins pipeline with Docker and SonarQube for your project. Feel free to customize the stages and configurations as per your project requirements.
-
-### Customization
-- Replace placeholder values (like GitHub repository URL, credentials, server details) with your actual project details.
-- Add any additional instructions specific to your environment or requirements.
-
-This README should provide users with a clear understanding of how to configure and run the pipeline. Let me know if you need further modifications!
