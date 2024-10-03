@@ -2,10 +2,10 @@ pipeline {
     agent any
 
     environment {
-        REPO_URL = 'https://github.com/your-repo/your-app.git'  // Your Git repository URL
-        IMAGE_NAME = 'your-docker-repo/nginx-image'             // Docker image name
-        REGISTRY_CREDENTIALS = 'dockerhub-credentials'          // Docker registry credentials ID
-        DOCKER_REGISTRY = 'your-docker-repo'                    // Docker registry
+        REPO_URL = 'https://github.com/diveshjha37/web-server-cd.git'     // Your Git repository URL
+        IMAGE_NAME = 'ghcr.io/diveshjha37/customNginx'    // Docker image name for GitHub Container Registry
+        GITHUB_CREDENTIALS = 'ghcr-credentials'                    // Credentials ID from Jenkins
+        GITHUB_REGISTRY = 'ghcr.io'                                // GitHub Container Registry
     }
 
     stages {
@@ -43,11 +43,11 @@ pipeline {
             }
         }
 
-        stage('Push Docker Image to Registry') {
+        stage('Push Docker Image to GitHub Container Registry') {
             steps {
                 script {
-                    // Push Docker image to the registry
-                    docker.withRegistry("https://${DOCKER_REGISTRY}", "${REGISTRY_CREDENTIALS}") {
+                    // Push Docker image to GitHub Container Registry
+                    docker.withRegistry("https://${GITHUB_REGISTRY}", "${GITHUB_CREDENTIALS}") {
                         docker.image("${IMAGE_NAME}").push()
                     }
                 }
@@ -82,3 +82,4 @@ pipeline {
         }
     }
 }
+
